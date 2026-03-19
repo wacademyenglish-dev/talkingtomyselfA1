@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>WOLF LABS | WOLFFY: Talking to Myself</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-spotify: #121212;
+            --bg-base: #121212;
+            --bg-card: #181818;
+            --bg-hover: #282828;
+            --spotify-green: #1DB954;
+            --text-main: #FFFFFF;
+            --text-sub: #B3B3B3;
+        }
+
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background-color: var(--bg-base);
+            color: var(--text-main);
+            overflow-x: hidden;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        h1, h2, h3, .spotify-font { letter-spacing: -0.04em; }
+
+        .glass-card { 
+            background: var(--bg-card); 
+            border-radius: 12px;
+            transition: all 0.3s ease;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+
+        .option-row {
+            transition: all 0.2s ease;
+            color: var(--text-sub);
+            border-radius: 8px;
+        }
+        .option-row:hover:not(.locked) {
+            background-color: rgba(255,255,255,0.1);
+            color: var(--text-main);
+        }
+        .option-row.correct { background: rgba(29, 185, 84, 0.2) !important; color: var(--spotify-green) !important; border: 1px solid var(--spotify-green); }
+        .option-row.wrong { background: rgba(233, 20, 41, 0.2) !important; color: #E91429 !important; border: 1px solid #E91429; }
+
+        /* Storyline Cards 3D */
+        .storyline-card { perspective: 1000px; cursor: pointer; width: 320px; height: 450px; }
+        .storyline-inner {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+            transform-style: preserve-3d;
+        }
+        .storyline-card.flipped .storyline-inner { transform: rotateY(180deg); }
+        .storyline-front, .storyline-back {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            border-radius: 16px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+        }
+        .storyline-front { background: #181818; border: 1px solid rgba(255,255,255,0.1); }
+        .storyline-back {
+            transform: rotateY(180deg);
+            background: var(--spotify-green);
+            color: black;
+        }
+
+        /* Interactive Lyrics */
+        .lyric-item {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .lyric-item.active { 
+            border-color: var(--spotify-green) !important;
+            background-color: rgba(29, 185, 84, 0.05) !important;
+            transform: scale(1.02); 
+            box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+        }
+
+        .drawer {
+            background: var(--bg-spotify);
+            border-left: 1px solid var(--bg-hover);
+            box-shadow: -20px 0 40px rgba(0,0,0,0.9);
+        }
+
+        .fade-in { animation: fadeIn 0.5s ease forwards; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: var(--bg-base); }
+        ::-webkit-scrollbar-thumb { background: #444; border-radius: 3px; }
+        
+        .video-container {
+            position: relative;
+            padding-bottom: 56.25%;
+            height: 0;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 25px 50px rgba(0,0,0,0.5);
+        }
+        .video-container iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+
+        .gradient-bg { 
+            background-color: var(--bg-base);
+            background-image: linear-gradient(180deg, #404040 0%, var(--bg-base) 40vh); 
+        }
+        .arena-bg { 
+            background-color: var(--bg-base);
+            background-image: linear-gradient(180deg, #1e3264 0%, var(--bg-base) 40vh); 
+            background-attachment: fixed; 
+        }
+        
+        #wb-text { background-image: radial-gradient(circle, #222 1px, transparent 1px); background-size: 20px 20px; }
+
+        .genre-pill {
+            transition: all 0.2s;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .genre-pill.selected { background: var(--spotify-green); color: black; border-color: var(--spotify-green); font-weight: 800; }
+    </style>
+</head>
+<body class="flex flex-col h-screen overflow-hidden text-sm">
+
+    <!-- TOP NAVIGATION -->
+    <nav class="absolute top-0 left-0 right-0 px-6 py-4 flex justify-between items-center z-40 bg-gradient-to-b from-black/95 to-transparent">
+        <div class="flex items-center gap-4">
+            <button onclick="goHome()" class="w-10 h-10 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-black/80 transition-colors">
+                <i class="fas fa-chevron-left"></i>
+            </button>
+            <div class="flex flex-col">
+                <span class="font-black text-xl tracking-tighter text-white">WOLF<span class="text-[#1DB954]">LABS</span></span>
+                <span class="text-[9px] uppercase tracking-widest text-[#1DB954] font-bold">Wolffy Music Experience</span>
+            </div>
+        </div>
+        <div class="flex items-center gap-2">
+            <button onclick="toggleWhiteboard()" class="px-5 py-2 rounded-full bg-[#1DB954] text-black hover:bg-[#1ed760] transition-all flex items-center gap-2 font-black text-xs shadow-[0_0_15px_rgba(29,185,84,0.4)]">
+                <i class="fas fa-pen-nib"></i> BOARD
+            </button>
+            <button onclick="toggleLessonNavigator()" class="lesson-map-btn hidden w-10 h-10 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-black/80 transition-colors">
+                <i class="fas fa-list-ul"></i>
+            </button>
+        </div>
+    </nav>
+
+    <!-- DASHBOARD -->
+    <main id="dashboard" class="flex-grow flex flex-col overflow-y-auto relative gradient-bg pb-24">
+        <button onclick="startLesson()" class="absolute top-24 right-6 px-4 py-2 bg-black/60 text-[#b3b3b3] hover:text-white rounded-full text-[10px] font-bold uppercase tracking-widest border border-white/10 transition-all flex items-center gap-2 z-30 hover:bg-black/80">
+            <i class="fas fa-eye-slash"></i> Hide Dashboard
+        </button>
+
+        <div class="max-w-6xl mx-auto w-full px-6 pt-28 pb-8 flex flex-col md:flex-row gap-8 md:items-end animate-in fade-in">
+            <div class="w-60 h-60 md:w-64 md:h-64 shrink-0 bg-[#282828] shadow-[0_15px_60px_rgba(0,0,0,0.6)] flex items-center justify-center relative overflow-hidden group rounded-sm border border-white/5">
+                <img src="https://images.unsplash.com/photo-1493225255756-d9584f8606e9?w=800&q=80" class="absolute inset-0 w-full h-full object-cover opacity-70 mix-blend-luminosity">
+                <i class="fas fa-bolt text-7xl text-[#1DB954] relative z-10 drop-shadow-2xl"></i>
+            </div>
+            <div class="flex flex-col gap-3">
+                <p class="text-xs font-black uppercase tracking-[0.2em] text-white">Interactive Music Module</p>
+                <h1 class="text-6xl md:text-8xl lg:text-9xl font-black tracking-tighter text-white leading-none">Talking to <br class="hidden md:block">Myself</h1>
+                <div class="flex items-center gap-3 mt-4">
+                    <div class="w-8 h-8 rounded-full bg-[#1DB954] flex items-center justify-center text-black text-[12px]"><i class="fas fa-music"></i></div>
+                    <p class="text-white font-bold text-base">Linkin Park</p>
+                    <span class="text-[#b3b3b3] text-xs">•</span>
+                    <p class="text-[#b3b3b3] text-sm font-medium">A1 • Present Continuous</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="max-w-6xl mx-auto w-full px-6 flex items-center gap-8 py-8 animate-in fade-in" style="animation-delay: 0.1s;">
+            <button onclick="startLesson()" class="w-16 h-16 rounded-full bg-[#1DB954] text-black flex items-center justify-center text-3xl hover:scale-105 transition-transform shadow-xl shrink-0">
+                <i class="fas fa-play ml-1"></i>
+            </button>
+            <div class="flex flex-wrap gap-2 md:ml-auto">
+                <span class="px-5 py-2.5 bg-white/10 text-white rounded-full text-[12px] font-bold tracking-widest border border-white/5 uppercase">30 Pages</span>
+                <span class="px-5 py-2.5 bg-white/10 text-white rounded-full text-[12px] font-bold tracking-widest border border-white/5 uppercase">Metaphors</span>
+            </div>
+        </div>
+    </main>
+
+    <!-- ARENA -->
+    <main id="lesson-arena" class="hidden flex-grow flex flex-col overflow-hidden relative arena-bg pb-24">
+        <div id="lesson-content" class="flex-grow overflow-y-auto px-6 py-28 flex flex-col items-center"></div>
+    </main>
+
+    <!-- PLAYER BAR -->
+    <footer id="player-bar" class="hidden fixed bottom-0 left-0 right-0 h-[100px] bg-[#181818] border-t border-[#282828] flex items-center justify-between px-6 z-50">
+        <div class="flex items-center gap-4 w-1/3 min-w-[200px]">
+            <div class="w-14 h-14 bg-[#282828] relative flex items-center justify-center rounded">
+                <i class="fas fa-bolt text-[#1DB954]"></i>
+            </div>
+            <div class="hidden sm:flex flex-col truncate">
+                <p id="player-title" class="text-sm font-black text-white truncate"></p>
+                <p id="player-subtitle" class="text-[10px] text-[#b3b3b3] uppercase tracking-widest truncate font-bold"></p>
+            </div>
+        </div>
+        <div class="flex flex-col items-center w-1/3 max-w-[600px]">
+            <div class="flex items-center gap-6 mb-2">
+                <button onclick="prevStep()" class="text-[#b3b3b3] hover:text-white text-xl"><i class="fas fa-step-backward"></i></button>
+                <button onclick="togglePlayState()" id="play-pause-btn" class="text-white text-5xl hover:scale-105 transition-transform"><i class="fas fa-pause-circle text-[#1DB954]"></i></button>
+                <button onclick="nextStep()" class="text-[#b3b3b3] hover:text-white text-xl"><i class="fas fa-step-forward"></i></button>
+            </div>
+            <div class="flex items-center gap-3 w-full">
+                <span class="text-[10px] font-bold text-[#b3b3b3]" id="step-count">0 / 30</span>
+                <div class="h-1 bg-[#4d4d4d] rounded-full w-full relative">
+                    <div id="player-progress" class="absolute top-0 left-0 h-full bg-white rounded-full transition-all duration-300" style="width: 0%;"></div>
+                </div>
+                <span class="text-[10px] font-bold text-[#b3b3b3]">WOLFFY</span>
+            </div>
+        </div>
+        <div class="flex items-center justify-end gap-6 w-1/3 text-[#b3b3b3]">
+            <button onclick="toggleTeacherHint()" class="hover:text-white relative group">
+                <i class="fas fa-lightbulb text-xl"></i>
+                <div id="teacher-hint-tooltip" class="hidden absolute bottom-full right-0 mb-8 w-72 p-5 bg-[#282828] text-white text-xs rounded-xl shadow-2xl border border-white/10 text-left">
+                    <p id="hint-text" class="leading-relaxed"></p>
+                </div>
+            </button>
+            <button onclick="toggleWhiteboard()" class="hover:text-white"><i class="fas fa-chalkboard text-xl"></i></button>
+        </div>
+    </footer>
+
+    <!-- WHITEBOARD -->
+    <aside id="whiteboard" class="fixed right-0 top-0 h-screen w-96 drawer z-[60] transform translate-x-full transition-transform duration-300 flex flex-col pt-20">
+        <div class="p-6 border-b border-[#282828] flex justify-between items-center bg-[#121212]">
+            <h2 class="font-black text-xl text-white">BOARD</h2>
+            <button onclick="toggleWhiteboard()" class="text-white"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="p-4 bg-[#181818] flex flex-wrap gap-2">
+            <button onclick="insertTag('[GRAMMAR]')" class="text-[10px] bg-[#282828] text-white px-3 py-1.5 rounded-full border border-white/5">Grammar</button>
+            <button onclick="insertTag('[VOCAB]')" class="text-[10px] bg-[#282828] text-white px-3 py-1.5 rounded-full border border-white/5">Vocab</button>
+        </div>
+        <textarea id="wb-text" class="flex-grow bg-[#0a0a0a] text-white p-8 resize-none focus:outline-none font-mono" placeholder="Live notes..."></textarea>
+    </aside>
+
+    <!-- TRACKLIST -->
+    <aside id="lesson-navigator" class="fixed right-0 top-0 h-screen w-80 drawer z-[55] transform translate-x-full transition-transform duration-300 flex flex-col pt-20">
+        <div id="nav-steps-list" class="flex-grow overflow-y-auto p-4 space-y-2"></div>
+    </aside>
+
+    <script>
+        // --- CORE UTILS ---
+        const esc = (s) => s.replace(/'/g, "\\'");
+        const TYPES = { GUIDE: "Setup", COVER: "Track", WARMUP: "Soundcheck", VOCAB: "Behind Lyrics", VIDEO: "Official Video", LYRIC: "Lyrics Analysis", GRAMMAR: "Grammar Rules", DRILL: "Challenge", SPEAKING: "Live Arena", WRAP: "Outro" };
+
+        function step(type, title, html, teacherHint = "Facilitate discussion.") { return { type, title, html, teacherHint }; }
+
+        // --- TEMPLATES ---
+        const bGuide = (title, focus, points, tipTitle = "Interactive Protocol", tipDesc = "") => step(TYPES.GUIDE, title, `
+            <div class="max-w-4xl w-full mx-auto space-y-8 animate-in fade-in">
+                <h2 class="text-6xl font-black text-white tracking-tighter">${focus}</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    ${points.map(p => `<div class="glass-card p-8 border border-white/5"><i class="fas fa-check-circle text-[#1DB954] mb-4 text-3xl"></i><p class="text-lg text-white font-medium">${p}</p></div>`).join('')}
+                </div>
+                ${tipDesc ? `
+                <div class="mt-8 p-6 bg-[#0a0a0a] rounded-xl border border-dashed border-[#1DB954] text-sm text-white flex items-center gap-4">
+                    <i class="fas fa-mouse-pointer text-[#1DB954] text-4xl"></i>
+                    <div>
+                        <strong class="text-xl block text-[#1DB954] mb-1">${tipTitle}</strong>
+                        ${tipDesc}
+                    </div>
+                </div>` : ''}
+            </div>
+        `, "Review objectives before starting.");
+
+        const bCover = (title, subtitle, capsules) => step(TYPES.COVER, title, `
+            <div class="max-w-2xl mx-auto w-full flex flex-col items-center justify-center space-y-10 min-h-[60vh] animate-in fade-in">
+                <div class="w-80 h-80 bg-[#282828] rounded shadow-2xl flex items-center justify-center relative overflow-hidden group">
+                    <img src="https://images.unsplash.com/photo-1493225255756-d9584f8606e9?w=800&q=80" class="absolute inset-0 w-full h-full object-cover opacity-70 mix-blend-luminosity">
+                    <i class="fas fa-bolt text-7xl text-[#1DB954] relative z-10"></i>
+                </div>
+                <div class="text-center">
+                    <h1 class="text-6xl font-black text-white">${title}</h1>
+                    <p class="text-2xl text-[#b3b3b3] font-medium mt-2">${subtitle}</p>
+                </div>
+                <div class="flex gap-2">${capsules.map(c => `<span class="px-4 py-1 bg-[#282828] text-white rounded-full text-[10px] font-bold uppercase tracking-widest border border-white/10">${c}</span>`).join('')}</div>
+            </div>
+        `, "Welcome the student.");
+
+        const bWarmup = (title, emoji, prompt, starter, genres = false) => step(TYPES.WARMUP, title, `
+            <div class="max-w-4xl mx-auto flex flex-col items-center justify-center min-h-[60vh] text-center space-y-12 animate-in fade-in">
+                <div class="text-[100px]">${emoji}</div>
+                <h2 class="text-6xl font-black text-white tracking-tighter leading-none">${prompt}</h2>
+                ${genres ? `<div class="flex flex-wrap justify-center gap-3">${['Rock', 'Metal', 'Pop', 'Alternative', 'Hip-Hop'].map(g => `<button onclick="this.classList.toggle('selected')" class="genre-pill px-6 py-2 rounded-full bg-[#181818] text-white font-bold text-sm">${g}</button>`).join('')}</div>` : ''}
+                <div class="bg-[#181818] p-8 rounded-2xl border-l-8 border-[#1DB954] w-full max-w-2xl text-left">
+                    <p class="text-[10px] font-black uppercase tracking-widest text-[#1DB954] mb-2">Speaking Starter</p>
+                    <p class="text-2xl font-bold text-white">"${starter}"</p>
+                </div>
+            </div>
+        `, "Encourage long answers.");
+
+        const bVocab = (concept, emoji, definition, question, starter) => step(TYPES.VOCAB, concept, `
+            <div class="max-w-4xl mx-auto flex flex-col items-center justify-center min-h-[65vh] animate-in fade-in">
+                <div class="storyline-card" onclick="this.classList.toggle('flipped')">
+                    <div class="storyline-inner">
+                        <div class="storyline-front">
+                            <div class="text-9xl mb-10">${emoji}</div>
+                            <h2 class="text-5xl font-black text-white uppercase tracking-tighter">${concept}</h2>
+                            <p class="text-[10px] text-[#b3b3b3] uppercase tracking-widest mt-12 font-black border border-white/10 px-4 py-2 rounded-full">Flip Card</p>
+                        </div>
+                        <div class="storyline-back text-center space-y-8">
+                            <h3 class="text-4xl font-black text-black uppercase tracking-tighter">${concept}</h3>
+                            <p class="text-xl font-bold text-black/80 italic leading-relaxed">"${definition}"</p>
+                            <div class="w-full h-px bg-black/20 my-2"></div>
+                            <p class="font-black text-2xl text-black underline decoration-black/20 underline-offset-8 leading-tight">${question}</p>
+                            <p class="text-[11px] font-black uppercase tracking-widest text-black/60 italic">"${starter}"</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `, "Let the student explore the metaphor.");
+
+        const bLyric = (title, lines, targetIdx, grammarReveal, meaningReveal, followup, starter) => {
+            const linesHtml = lines.map((line, i) => {
+                if(i === targetIdx) return `
+                    <div class="lyric-item group relative bg-[#181818] hover:bg-[#282828] border border-white/5 hover:border-[#1DB954]/50 p-6 md:p-8 rounded-3xl cursor-pointer transition-all duration-300 shadow-xl my-6" onclick="revealLyric(this, '${esc(grammarReveal)}', '${esc(meaningReveal)}', '${esc(followup)}', '${esc(starter)}')">
+                        <div class="absolute -left-4 md:-left-5 top-1/2 -translate-y-1/2 w-8 h-8 md:w-10 md:h-10 bg-[#1DB954] rounded-full flex items-center justify-center shadow-[0_0_20px_rgba(29,185,84,0.6)] group-hover:scale-110 transition-transform">
+                            <i class="fas fa-hand-pointer text-black text-xs md:text-sm"></i>
+                        </div>
+                        <p class="text-3xl md:text-4xl lg:text-5xl font-black text-white leading-tight ml-4 md:ml-6">
+                            ${line.replace(/\[(.*?)\]/g, '<span class="text-[#1DB954] underline decoration-4 underline-offset-8">$1</span>')}
+                        </p>
+                        <div class="absolute top-4 right-6 opacity-0 group-hover:opacity-100 transition-opacity hidden md:block">
+                            <span class="text-[10px] font-black uppercase tracking-widest text-[#1DB954] bg-[#1DB954]/10 px-3 py-1 rounded-full border border-[#1DB954]/20">Click to Analyze</span>
+                        </div>
+                    </div>`;
+                return `<p class="text-2xl md:text-3xl font-bold text-white/30 py-2 leading-tight pl-6">${line}</p>`;
+            }).join('');
+            
+            return step(TYPES.LYRIC, title, `
+                <div class="max-w-7xl mx-auto w-full flex flex-col lg:flex-row gap-12 items-center min-h-[65vh] relative animate-in fade-in py-10">
+                    <div class="flex-1 w-full flex flex-col justify-center max-w-2xl">
+                        <div class="inline-flex items-center gap-3 px-4 py-2 rounded-full bg-white/5 border border-white/10 mb-8 self-start">
+                            <span class="relative flex h-3 w-3">
+                              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#1DB954] opacity-75"></span>
+                              <span class="relative inline-flex rounded-full h-3 w-3 bg-[#1DB954]"></span>
+                            </span>
+                            <p class="text-[10px] font-black uppercase tracking-[0.2em] text-[#b3b3b3]">Interactive Lyrics</p>
+                        </div>
+                        <div class="space-y-2">${linesHtml}</div>
+                    </div>
+
+                    <!-- Placeholder -->
+                    <div id="lyric-placeholder" class="w-full lg:w-[480px] shrink-0 flex flex-col items-center justify-center text-center p-12 border-2 border-dashed border-white/5 rounded-3xl h-[450px] bg-white/[0.02] transition-all duration-300">
+                        <i class="fas fa-hand-pointer text-5xl text-white/10 mb-6 animate-bounce"></i>
+                        <h3 class="text-2xl font-black text-white/40 mb-3 tracking-tight">Select a Line</h3>
+                        <p class="text-base text-white/20 font-medium leading-relaxed">Click on the highlighted lyrics on the left to reveal grammar, context, and speaking prompts.</p>
+                    </div>
+
+                    <!-- Reveal Content -->
+                    <div id="reveal-content" class="hidden w-full lg:w-[480px] shrink-0 opacity-0 transition-all duration-500 translate-x-12 relative h-auto">
+                        <button onclick="hideLyric()" class="absolute top-6 right-6 text-[#b3b3b3] hover:text-white text-2xl z-20 w-10 h-10 flex items-center justify-center bg-black/50 rounded-full hover:bg-black/80 transition-colors"><i class="fas fa-times"></i></button>
+                        <div class="bg-gradient-to-b from-[#181818] to-[#121212] rounded-3xl p-10 shadow-[0_20px_60px_rgba(0,0,0,0.8)] border border-white/10 relative overflow-hidden flex flex-col justify-center min-h-[450px]">
+                            <div class="absolute -top-20 -right-20 w-64 h-64 bg-[#1DB954]/10 rounded-full blur-3xl pointer-events-none"></div>
+                            
+                            <div class="mb-8 relative z-10">
+                                <p class="text-[11px] font-black text-[#1DB954] uppercase tracking-[0.3em] mb-3 flex items-center gap-2"><i class="fas fa-microscope"></i> Analysis</p>
+                                <p class="text-3xl text-white font-black leading-tight tracking-tighter" id="r-grammar"></p>
+                            </div>
+                            <div class="w-full h-px bg-gradient-to-r from-[#1DB954]/50 to-transparent mb-8"></div>
+                            <div class="mb-10 relative z-10">
+                                <p class="text-[11px] font-black text-[#b3b3b3] uppercase tracking-[0.3em] mb-3 flex items-center gap-2"><i class="fas fa-book-open"></i> Context</p>
+                                <p class="text-lg text-[#b3b3b3] font-medium leading-relaxed" id="r-meaning"></p>
+                            </div>
+                            <div class="bg-[#1DB954]/10 p-8 rounded-2xl border border-[#1DB954]/20 relative z-10 mt-auto">
+                                <div class="absolute -top-3 left-8 bg-[#1DB954] text-black px-4 py-1 rounded-full text-[9px] font-black uppercase tracking-widest">Your Turn</div>
+                                <p class="text-2xl font-black text-white mb-4 leading-tight" id="r-followup"></p>
+                                <p class="text-sm font-bold text-[#1DB954] uppercase italic tracking-wide" id="r-starter"></p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `, "Analyze the deeper meaning.");
+        };
+
+        const bGrammar = (title, rule, structures) => step(TYPES.GRAMMAR, title, `
+            <div class="max-w-5xl mx-auto space-y-12 w-full animate-in fade-in">
+                <div class="p-12 bg-gradient-to-br from-[#1DB954] to-[#127d36] text-black rounded-3xl">
+                    <h2 class="text-6xl font-black mb-4 tracking-tighter">${rule.title}</h2>
+                    <p class="text-3xl font-bold opacity-90 leading-tight">${rule.desc}</p>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    ${structures.map(s => `<div class="glass-card p-10 flex flex-col justify-center border border-white/5"><span class="text-[11px] font-black uppercase tracking-widest text-[#1DB954] mb-4">${s.label}</span><span class="text-3xl font-black text-white leading-tight">${s.ex.replace(/\[(.*?)\]/g, '<span class="text-[#1DB954]">$1</span>')}</span></div>`).join('')}
+                </div>
+            </div>
+        `, "Clarify the Continuous structure.");
+
+        const bQuizDrill = (id, instruction, prefix, suffix, options, correctIdx, followup, starter) => step(TYPES.DRILL, instruction, `
+            <div class="max-w-4xl mx-auto w-full flex flex-col items-center py-10 animate-in fade-in">
+                <h2 class="text-5xl font-black text-white tracking-tighter mb-12 text-center">${instruction}</h2>
+                <div class="text-4xl md:text-6xl font-black text-white leading-tight w-full text-center mb-16 px-6">
+                    ${prefix} <span id="quiz-blank-${id}" class="inline-block border-b-8 border-[#1DB954] min-w-[160px] text-[#1DB954] pb-2 transition-all duration-500">&nbsp;</span> ${suffix}
+                </div>
+                <div class="w-full max-w-2xl space-y-3" id="quiz-options-${id}">
+                    ${options.map((opt, i) => `<div onclick="handleQuizDrill('${id}', this, ${i === correctIdx}, '${esc(opt)}', '${esc(followup)}', '${esc(starter)}')" class="option-row w-full flex items-center justify-between p-5 cursor-pointer group hover:bg-white/10 border border-transparent hover:border-white/10"><div class="flex items-center gap-6"><span class="text-xl font-black text-[#b3b3b3] w-8 text-center group-hover:hidden">${i+1}</span><i class="fas fa-play text-[#1DB954] hidden group-hover:block w-8 text-center"></i><span class="text-2xl font-bold">${opt}</span></div><span class="text-[10px] font-black tracking-widest uppercase opacity-0 group-hover:opacity-100 bg-[#1DB954] text-black px-4 py-1.5 rounded-full">Select</span></div>`).join('')}
+                </div>
+                <div id="followup-box-${id}" class="hidden w-full mt-12 p-10 bg-[#181818] rounded-3xl text-center border border-[#1DB954]/20 shadow-2xl"><p class="text-3xl font-black mb-6 text-white leading-tight">${followup}</p><p class="text-xl text-[#b3b3b3] font-medium italic">"${starter}"</p></div>
+            </div>
+        `, "Quick application.");
+
+        const bSpeaking = (title, prompt, bullets, starter) => step(TYPES.SPEAKING, title, `
+            <div class="max-w-5xl mx-auto w-full flex flex-col items-center justify-center min-h-[70vh] space-y-16 text-center py-10 animate-in fade-in">
+                <div class="bg-red-600/20 text-red-500 px-8 py-3 rounded-full text-sm font-black uppercase tracking-widest border border-red-500/30 animate-pulse"><i class="fas fa-record-vinyl mr-2"></i> Live Arena</div>
+                <h2 class="text-6xl md:text-8xl font-black tracking-tighter text-white leading-[0.9]">${prompt}</h2>
+                <div class="flex flex-wrap justify-center gap-4 max-w-3xl">${bullets.map(b => `<span class="px-8 py-3 bg-[#181818] border border-white/5 text-white rounded-full font-bold text-lg">${b}</span>`).join('')}</div>
+                <div class="w-full max-w-2xl p-10 rounded-3xl bg-gradient-to-br from-[#1DB954]/30 via-[#181818] to-transparent border-l-8 border-[#1DB954] text-left shadow-2xl">
+                    <p class="text-[11px] font-black uppercase tracking-widest text-[#1DB954] mb-4">Master Starter</p>
+                    <p class="text-3xl font-bold text-white leading-tight">"${starter}"</p>
+                </div>
+            </div>
+        `, "Unleash STT.");
+
+        const bWrap = () => step(TYPES.WRAP, "Outro", `
+            <div class="text-center space-y-10 max-w-3xl mx-auto flex flex-col items-center justify-center min-h-[70vh]">
+                <div class="w-40 h-40 rounded-full bg-[#1DB954] mx-auto flex items-center justify-center text-7xl shadow-[0_0_60px_rgba(29,185,84,0.5)] animate-bounce text-black">
+                    <i class="fas fa-check"></i>
+                </div>
+                <h1 class="text-8xl font-black text-white leading-none tracking-tighter uppercase">Track <br> <span class="text-[#1DB954]">Finished</span></h1>
+                <p class="text-3xl text-[#b3b3b3]">Linkin Park helped you master Continuous actions and Metaphors.</p>
+                <div class="pt-10 w-full max-w-md">
+                    <button onclick="goHome()" class="w-full py-5 rounded-full bg-white text-black font-black uppercase tracking-widest text-base hover:scale-105 transition-all shadow-xl">Exit to Dashboard</button>
+                </div>
+            </div>
+        `, "Positive reinforcement.");
+
+        // --- DATA FACTORY ---
+        const generateClassData = () => [
+            // Teacher Guides (1-3)
+            bGuide("Production Briefing 1/3", "Targets", ["Continuous Grammar", "Linkin Park Theme", "Fluency STT"], "Crucial Instruction", "Ensure your environment is ready. Mute your microphone if necessary during the music video."),
+            bGuide("Production Briefing 2/3", "Staging", ["Spotify Aesthetic", "3D Flip Cards", "Lyrics Focus"], "Interactive Protocol (Zoom/Meet)", "You MUST give MOUSE CONTROL to the student. Let them drive the lesson by clicking the cards, selecting genres, and analyzing lyrics. This increases engagement drastically."),
+            bGuide("Production Briefing 3/3", "Corrections", ["Silent correction", "Grammar Engine", "Idiom mastery"], "Board Usage", "Use the BOARD (top right) for silent corrections on 'ing' spelling and 'to be' verb errors while the student speaks."),
+            
+            // Cover (4)
+            bCover("Talking to Myself", "Linkin Park", ["Present Continuous", "Idioms", "Deep Context"]),
+            
+            // Warmups (5-7)
+            bWarmup("Soundcheck 1", "🎸", "What kind of music do you usually listen to?", "I usually listen to... and my favorite genre is...", true),
+            bWarmup("Soundcheck 2", "📱", "How often do you use headphones?", "I usually use headphones when..."),
+            bWarmup("Soundcheck 3", "🗣️", "Do you like songs with meaningful lyrics?", "Yes, I think meaningful lyrics are... / No, I prefer..."),
+            
+            // Vocab (8-14)
+            bVocab("Whisper", "🤫", "To speak very softly or quietly using only your breath.", "When do you need to whisper?", "I need to whisper when..."),
+            bVocab("Yell", "🗣️", "To shout or speak very loudly.", "When was the last time you yelled?", "The last time I yelled was..."),
+            bVocab("Mistake", "❌", "An action or judgment that is wrong.", "Is making mistakes good for learning?", "Yes, because mistakes..."),
+            bVocab("Gotta", "🏃", "Informal for 'Got To' (must).", "What have you gotta do after class?", "After class, I've gotta..."),
+            bVocab("Nobody's Home", "💡", "An idiom meaning someone is physically present but mentally distracted or absent.", "Does this happen in long virtual meetings?", "Yes, sometimes in meetings people are..."),
+            bVocab("Building Walls", "🧱", "Creating emotional distance from others.", "Why do people build emotional walls?", "I think people build walls because..."),
+            bVocab("Sky is Falling", "☄️", "Exaggerating a small problem into a massive disaster.", "Do you know someone who thinks the sky is falling?", "Yes, my friend always thinks..."),
+
+            // Video (15)
+            step(TYPES.VIDEO, "Official Video", `<div class="max-w-4xl mx-auto w-full flex flex-col items-center"><h2 class="text-4xl font-black text-white mb-8 tracking-tighter uppercase">Watch & Listen</h2><div class="video-container w-full"><iframe src="https://www.youtube.com/embed/lvs68OKOquM?rel=0" frameborder="0" allowfullscreen></iframe></div></div>`, "Play the video. Instruct the student to listen for 'ING' words."),
+
+            // Lyrics Analysis (16-20)
+            bLyric("Analysis 1", ["You say I can't understand", "But [you're not giving] me a chance", "When you leave me, where do you go?"], 1, "Negative Continuous", "Action NOT happening right now.", "Are you giving 100% at work today?", "Yes, I am giving..."),
+            bLyric("Analysis 2", ["Tell me what I've [gotta] do", "There's no getting through to you"], 0, "Necessity (Slang)", "'Gotta' means 'Got to' or 'Have to'.", "What have you gotta change this year?", "I've gotta change..."),
+            bLyric("Analysis 3", ["There's no getting through to you", "[The lights are on but nobody's home]"], 1, "Powerful Metaphor", "Think of a house. The lights are on (eyes open, physically present), but NOBODY IS HOME (mind is far away). Completely zoned out.", "Have you ever talked to someone when 'nobody was home'?", "Yes, once I was talking to..."),
+            bLyric("Analysis 4", ["Can't you hear me [calling] you home?", "But I know, yeah I know"], 0, "Action in progress", "The action of calling is happening right now.", "Who is calling you the most these days?", "These days, ... is calling me."),
+            bLyric("Chorus", ["But I know, yeah I know", "[I'm just talking] to myself", "Talking to myself"], 1, "Present Continuous", "The act of speaking alone right now.", "Who are you talking to today?", "I am talking to..."),
+
+            // Grammar (21-23)
+            bGrammar("Grammar Track 1", {title: "The -ING Logic", desc: "Am/Is/Are + Verb-ING for actions happening NOW."}, [{ex: "I [am listening].", label: "I"}, {ex: "She [is yelling].", label: "She"}]),
+            bGrammar("Grammar Track 2", {title: "Negative Mode", desc: "Add 'NOT' after the verb to be."}, [{ex: "I [am not whispering].", label: "I"}, {ex: "They [aren't listening].", label: "They"}]),
+            bGrammar("Grammar Track 3", {title: "Question Mode", desc: "Swap the position of the verb 'to be'."}, [{ex: "[Are you making] a mistake?", label: "Question"}, {ex: "[Is he talking]?", label: "Question"}]),
+
+            // Drills (24-27)
+            bQuizDrill("q1", "Complete the lyric", "I", "singing Linkin Park.", ["am", "is", "are"], 0, "What are you singing today?", "Today, I am singing..."),
+            bQuizDrill("q2", "Spot the mistake", "He", "yelling at the wall.", ["am", "is", "are"], 1, "Is someone yelling near you?", "No, nobody is..."),
+            bQuizDrill("q3", "Negative challenge", "We", "not whispering.", ["am", "is", "are"], 2, "Are we whispering right now?", "No, we are..."),
+            bQuizDrill("q4", "Question challenge", "___", "you building a wall?", ["Am", "Is", "Are"], 2, "Are you building a wall?", "No, I am..."),
+
+            // Speaking (28-29)
+            bSpeaking("Live Arena 1", "What are you doing at this exact moment?", ["Sitting", "Learning", "Speaking", "Improving"], "At this exact moment, I am..."),
+            bSpeaking("Live Arena 2", "If you look out the window, what is happening?", ["Cars", "People", "Rain", "Wind"], "Outside, it is... and I can see..."),
+            
+            // Wrap-up (30)
+            bWrap()
+        ];
+
+        // --- APP ENGINE ---
+        const lessonData = generateClassData();
+        let currentStepIdx = 0;
+        let isPlaying = true;
+
+        function startLesson() {
+            document.getElementById('dashboard').classList.add('hidden');
+            document.getElementById('lesson-arena').classList.remove('hidden');
+            document.getElementById('player-bar').classList.remove('hidden');
+            const mapBtn = document.querySelector('.lesson-map-btn');
+            if (mapBtn) mapBtn.classList.remove('hidden');
+            buildLessonNavigator();
+            renderStep();
+        }
+
+        function goHome() {
+            document.getElementById('dashboard').classList.remove('hidden');
+            document.getElementById('lesson-arena').classList.add('hidden');
+            document.getElementById('player-bar').classList.add('hidden');
+            const mapBtn = document.querySelector('.lesson-map-btn');
+            if (mapBtn) mapBtn.classList.add('hidden');
+            currentStepIdx = 0;
+        }
+
+        function buildLessonNavigator() {
+            const list = document.getElementById('nav-steps-list');
+            if (!list) return;
+            list.innerHTML = '';
+            lessonData.forEach((step, i) => {
+                const btn = document.createElement('button');
+                btn.className = `w-full text-left p-3 rounded-lg flex items-center gap-4 ${i === currentStepIdx ? 'bg-white/10 text-white' : 'text-[#b3b3b3] hover:bg-white/5'}`;
+                btn.innerHTML = `<span class="w-6 text-xs font-black ${i === currentStepIdx ? 'text-[#1DB954]' : ''}">${i+1}</span><div class="flex flex-col truncate"><span class="font-black text-xs truncate uppercase">${step.title}</span></div>`;
+                btn.onclick = () => { currentStepIdx = i; renderStep(); toggleLessonNavigator(); };
+                list.appendChild(btn);
+            });
+        }
+
+        function renderStep() {
+            const step = lessonData[currentStepIdx];
+            document.getElementById('player-title').innerText = step.title;
+            document.getElementById('player-subtitle').innerText = step.type;
+            document.getElementById('hint-text').innerText = step.teacherHint;
+            document.getElementById('step-count').innerText = `${currentStepIdx + 1} / ${lessonData.length}`;
+            const percent = ((currentStepIdx + 1) / lessonData.length) * 100;
+            const progress = document.getElementById('player-progress');
+            if (progress) progress.style.width = `${percent}%`;
+            
+            const content = document.getElementById('lesson-content');
+            if (content) content.innerHTML = `<div class="w-full max-w-7xl">${step.html}</div>`;
+            buildLessonNavigator();
+        }
+
+        function nextStep() { if (currentStepIdx < lessonData.length - 1) { currentStepIdx++; renderStep(); } else { goHome(); } }
+        function prevStep() { if (currentStepIdx > 0) { currentStepIdx--; renderStep(); } }
+
+        function togglePlayState() {
+            isPlaying = !isPlaying;
+            document.getElementById('play-pause-btn').innerHTML = isPlaying ? '<i class="fas fa-pause-circle text-[#1DB954]"></i>' : '<i class="fas fa-play-circle text-white"></i>';
+        }
+
+        function handleQuizDrill(id, row, isCorrect, text, followup, starter) {
+            if(row.parentElement.classList.contains('locked')) return;
+            const parent = row.parentElement;
+            parent.classList.add('locked');
+            Array.from(parent.children).forEach(child => { 
+                child.onclick = null; 
+                child.classList.add('opacity-30', 'cursor-default'); 
+            });
+            row.classList.remove('opacity-30'); 
+            if(isCorrect) {
+                const blank = document.getElementById(`quiz-blank-${id}`);
+                if(blank) { blank.innerText = text; blank.classList.remove('border-b-8'); }
+                row.classList.add('correct');
+                const fBox = document.getElementById(`followup-box-${id}`);
+                if(fBox) fBox.classList.remove('hidden');
+            } else {
+                row.classList.add('wrong');
+            }
+        }
+
+        function revealLyric(element, grammar, meaning, followup, starter) {
+            document.querySelectorAll('.lyric-item').forEach(el => el.classList.remove('active'));
+            element.classList.add('active');
+            
+            document.getElementById('r-grammar').innerText = grammar;
+            document.getElementById('r-meaning').innerText = meaning;
+            document.getElementById('r-followup').innerText = followup;
+            document.getElementById('r-starter').innerText = `Starter: "${starter}"`;
+            
+            const placeholder = document.getElementById('lyric-placeholder');
+            const reveal = document.getElementById('reveal-content');
+            
+            if (placeholder) {
+                placeholder.classList.add('hidden');
+            }
+            if (reveal) {
+                reveal.classList.remove('hidden');
+                setTimeout(() => {
+                    reveal.classList.remove('opacity-0', 'translate-x-12');
+                }, 10);
+            }
+        }
+
+        function hideLyric() { 
+            const reveal = document.getElementById('reveal-content');
+            const placeholder = document.getElementById('lyric-placeholder');
+            
+            document.querySelectorAll('.lyric-item').forEach(el => el.classList.remove('active'));
+
+            if (reveal) {
+                reveal.classList.add('opacity-0', 'translate-x-12'); 
+                setTimeout(() => {
+                    reveal.classList.add('hidden');
+                    if (placeholder) {
+                        placeholder.classList.remove('hidden');
+                    }
+                }, 500);
+            }
+        }
+        
+        function toggleWhiteboard() { document.getElementById('whiteboard').classList.toggle('translate-x-full'); }
+        function toggleLessonNavigator() { document.getElementById('lesson-navigator').classList.toggle('translate-x-full'); }
+        function toggleTeacherHint() { document.getElementById('teacher-hint-tooltip').classList.toggle('hidden'); }
+        function insertTag(tag) { const text = document.getElementById('wb-text'); if (text) { text.value += (text.value.length > 0 ? '\n' : '') + tag + ' '; text.focus(); } }
+    </script>
+</body>
+</html>
